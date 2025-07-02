@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { api, AuthResponse } from "@/lib/api"
+import { api, AuthResponse, setAuthToken } from "@/lib/api"
 
 export default function SignUp() {
   const [firstName, setFirstName] = useState("")
@@ -55,6 +55,11 @@ export default function SignUp() {
       const data: AuthResponse = await response.json()
       
       if (response.ok && data.success) {
+        // Store JWT token if provided
+        if (data.token) {
+          setAuthToken(data.token)
+        }
+        
         // Store user info in localStorage
         localStorage.setItem('user', JSON.stringify({
           id: data.data._id,

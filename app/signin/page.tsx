@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { api, AuthResponse } from "@/lib/api"
+import { api, setAuthToken } from "@/lib/api"
 
 export default function SignIn() {
   const [email, setEmail] = useState("")
@@ -36,21 +36,84 @@ export default function SignIn() {
 
     try {
       // Make API call to sign in endpoint
+      console.log('Making signin request...')
       const response = await api.auth.signIn(email, password)
-      const data: AuthResponse = await response.json()
+      console.log('Signin response status:', response.status)
+      console.log('Signin response headers:', response.headers)
+      
+      const data: Record<string, unknown> = await response.json()
+      console.log('=== COMPLETE SIGNIN RESPONSE ===')
+      console.log('Full response data:', JSON.stringify(data, null, 2))
+      console.log('================================')
       
       if (response.ok && data.success) {
+        // Check for token in various possible locations
+        let token = null
+        
+        // Common token field names to check
+        const tokenFields = [
+          'token',           // data.token
+          'accessToken',     // data.accessToken
+          'authToken',       // data.authToken
+          'jwt',             // data.jwt
+          'access_token',    // data.access_token
+          'auth_token'       // data.auth_token
+        ]
+        
+        // Check at root level first
+        for (const field of tokenFields) {
+          if (data[field]) {
+            token = data[field] as string
+            console.log(`Found token at root level in field: ${field}`)
+            break
+          }
+        }
+        
+        // If not found at root, check in data object
+        if (!token && data.data && typeof data.data === 'object') {
+          const dataObj = data.data as Record<string, unknown>
+          for (const field of tokenFields) {
+            if (dataObj[field]) {
+              token = dataObj[field] as string
+              console.log(`Found token in data.${field}`)
+              break
+            }
+          }
+        }
+        
+        // Check for token in response headers
+        if (!token) {
+          const authHeader = response.headers.get('authorization') || response.headers.get('Authorization')
+          if (authHeader) {
+            token = authHeader.replace('Bearer ', '')
+            console.log('Found token in Authorization header')
+          }
+        }
+        
+        if (token) {
+          console.log('Token found and storing:', token)
+          setAuthToken(token)
+        } else {
+          console.log('No token found in response')
+          console.log('Available fields in response:', Object.keys(data))
+          if (data.data && typeof data.data === 'object') {
+            console.log('Available fields in data object:', Object.keys(data.data as Record<string, unknown>))
+          }
+        }
+        
         // Store user info in localStorage
+        const userData = data.data as { _id: string; name: string; email: string }
         localStorage.setItem('user', JSON.stringify({
-          id: data.data._id,
-          name: data.data.name,
-          email: data.data.email
+          id: userData._id,
+          name: userData.name,
+          email: userData.email
         }))
         
+        console.log('User data stored, redirecting to dashboard')
         // Redirect to dashboard
         router.push('/dashboard')
       } else {
-        setError(data.message || "Invalid email or password")
+        setError((data.message as string) || "Invalid email or password")
       }
       
     } catch (err) {
