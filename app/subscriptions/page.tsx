@@ -6,6 +6,9 @@ import { Button } from "@/components/ui/button"
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion"
 import { useRouter } from "next/navigation"
 import { api, Subscription, getAuthToken } from "@/lib/api"
+import EditSubscriptionModal from "@/components/EditSubscriptionModal"
+import ConfirmationPopover from "@/components/ConfirmationPopover"
+import NotificationToast, { useNotification } from "@/components/NotificationToast"
 import Link from "next/link"
 
 interface User {
@@ -19,6 +22,10 @@ export default function SubscriptionsPage() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string>('')
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null)
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const { notification, showNotification, hideNotification } = useNotification()
   const router = useRouter()
 
   const fetchSubscriptions = async () => {
@@ -72,6 +79,73 @@ export default function SubscriptionsPage() {
     }
   }, [user])
 
+  const handleEditSubscription = (subscription: Subscription) => {
+    setSelectedSubscription(subscription)
+    setEditModalOpen(true)
+  }
+
+  const handleCancelSubscription = async (subscription: Subscription) => {
+    if (!subscription._id) return
+
+    setActionLoading(subscription._id)
+    
+    try {
+      const response = await api.subscriptions.cancel(subscription._id)
+      
+      if (response.ok) {
+        showNotification(
+          "Subscription Cancelled",
+          `${subscription.name} has been successfully cancelled.`,
+          "success"
+        )
+        fetchSubscriptions() // Refresh the list
+      } else {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to cancel subscription')
+      }
+    } catch (error) {
+      console.error('Error cancelling subscription:', error)
+      showNotification(
+        "Cancellation Failed",
+        error instanceof Error ? error.message : 'Failed to cancel subscription',
+        "error"
+      )
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleDeleteSubscription = async (subscription: Subscription) => {
+    if (!subscription._id) return
+
+    setActionLoading(subscription._id)
+    
+    try {
+      const response = await api.subscriptions.delete(subscription._id)
+      
+      if (response.ok) {
+        showNotification(
+          "Subscription Deleted",
+          `${subscription.name} has been permanently deleted.`,
+          "success"
+        )
+        fetchSubscriptions() // Refresh the list
+      } else {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to delete subscription')
+      }
+    } catch (error) {
+      console.error('Error deleting subscription:', error)
+      showNotification(
+        "Deletion Failed",
+        error instanceof Error ? error.message : 'Failed to delete subscription',
+        "error"
+      )
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -117,6 +191,11 @@ export default function SubscriptionsPage() {
       other: '📦'
     }
     return icons[category] || '📦'
+  }
+
+  const formatWebsiteUrl = (url: string) => {
+    // Remove protocol for display
+    return url.replace(/^https?:\/\//, '').replace(/\/$/, '')
   }
 
   if (isLoading) {
@@ -253,6 +332,22 @@ export default function SubscriptionsPage() {
                               <span className="text-gray-600 dark:text-gray-400">Service:</span>
                               <span className="font-medium">{subscription.name}</span>
                             </div>
+                            {subscription.websiteUrl && (
+                              <div className="flex justify-between">
+                                <span className="text-gray-600 dark:text-gray-400">Website:</span>
+                                <a 
+                                  href={subscription.websiteUrl} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 flex items-center"
+                                >
+                                  {formatWebsiteUrl(subscription.websiteUrl)}
+                                  <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                  </svg>
+                                </a>
+                              </div>
+                            )}
                             <div className="flex justify-between">
                               <span className="text-gray-600 dark:text-gray-400">Category:</span>
                               <span className="font-medium capitalize">{subscription.category}</span>
@@ -330,17 +425,66 @@ export default function SubscriptionsPage() {
                       </div>
 
                       {/* Action Buttons */}
-                      <div className="flex gap-2 p-4 border-t border-gray-200 dark:border-gray-700">
-                        <Button variant="outline" size="sm">
+                      <div className="flex flex-wrap gap-2 p-4 border-t border-gray-200 dark:border-gray-700">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleEditSubscription(subscription)}
+                          disabled={actionLoading === subscription._id}
+                        >
                           Edit Subscription
                         </Button>
-                        <Button variant="outline" size="sm">
-                          Cancel Subscription
-                        </Button>
-                        {subscription.isTrial && (
-                          <Button variant="outline" size="sm">
-                            Manage Trial
+                        
+                        {subscription.status !== 'cancelled' && (
+                          <ConfirmationPopover
+                            title="Cancel Subscription"
+                            description={`Are you sure you want to cancel "${subscription.name}"? This will change its status to cancelled.`}
+                            confirmText="Cancel Subscription"
+                            cancelText="Keep Active"
+                            onConfirm={() => handleCancelSubscription(subscription)}
+                            variant="default"
+                            disabled={actionLoading === subscription._id}
+                          >
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              disabled={actionLoading === subscription._id}
+                              className="text-orange-600 hover:text-orange-700 border-orange-200 hover:border-orange-300"
+                            >
+                              {actionLoading === subscription._id ? "Cancelling..." : "Cancel Subscription"}
+                            </Button>
+                          </ConfirmationPopover>
+                        )}
+                        
+                        <ConfirmationPopover
+                          title="Delete Subscription"
+                          description={`Are you sure you want to permanently delete "${subscription.name}"? This action cannot be undone.`}
+                          confirmText="Delete Forever"
+                          cancelText="Keep Subscription"
+                          onConfirm={() => handleDeleteSubscription(subscription)}
+                          variant="destructive"
+                          disabled={actionLoading === subscription._id}
+                        >
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            disabled={actionLoading === subscription._id}
+                            className="text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
+                          >
+                            {actionLoading === subscription._id ? "Deleting..." : "Delete Subscription"}
                           </Button>
+                        </ConfirmationPopover>
+                        
+                        {subscription.websiteUrl && (
+                          <a 
+                            href={subscription.websiteUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                          >
+                            <Button variant="outline" size="sm">
+                              Visit Website
+                            </Button>
+                          </a>
                         )}
                       </div>
                     </AccordionContent>
@@ -351,6 +495,23 @@ export default function SubscriptionsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Edit Subscription Modal */}
+      <EditSubscriptionModal
+        open={editModalOpen}
+        onOpenChange={setEditModalOpen}
+        subscription={selectedSubscription}
+        onSubscriptionUpdated={fetchSubscriptions}
+      />
+
+      {/* Notification Toast */}
+      <NotificationToast
+        open={notification.open}
+        onOpenChange={hideNotification}
+        title={notification.title}
+        description={notification.description}
+        type={notification.type}
+      />
     </div>
   )
 } 

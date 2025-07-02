@@ -64,6 +64,7 @@ export interface Subscription {
   category: string
   startDate: string
   paymentMethod: string
+  websiteUrl?: string
   isTrial: boolean
   trialInfo?: {
     trialDuration: number
@@ -133,6 +134,41 @@ export const api = {
         headers
       })
       console.log('📬 Subscription getAll response status:', response.status)
+      return response
+    },
+
+    update: async (subscriptionId: string, subscriptionData: Partial<Subscription>) => {
+      console.log('🚀 Making subscription update request... subscriptionId', subscriptionId)
+      const headers = getAuthHeaders()
+      const response = await fetch(`${API_BASE_URL}/subscriptions/${subscriptionId}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(subscriptionData)
+      })
+      console.log('📬 Subscription update response status:', response.status)
+      return response
+    },
+
+    delete: async (subscriptionId: string) => {
+      console.log('🚀 Making subscription delete request... subscriptionId', subscriptionId)
+      const headers = getAuthHeaders()
+      const response = await fetch(`${API_BASE_URL}/subscriptions/${subscriptionId}`, {
+        method: 'DELETE',
+        headers
+      })
+      console.log('📬 Subscription delete response status:', response.status)
+      return response
+    },
+
+    cancel: async (subscriptionId: string) => {
+      console.log('🚀 Making subscription cancel request... subscriptionId', subscriptionId)
+      const headers = getAuthHeaders()
+      const response = await fetch(`${API_BASE_URL}/subscriptions/${subscriptionId}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ status: 'cancelled' })
+      })
+      console.log('📬 Subscription cancel response status:', response.status)
       return response
     }
   }

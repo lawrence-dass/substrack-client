@@ -19,7 +19,6 @@ export default function Dashboard() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
-  const [debugInfo, setDebugInfo] = useState<string>('')
   const router = useRouter()
 
   const fetchSubscriptions = async () => {
@@ -40,15 +39,12 @@ export default function Dashboard() {
         const result = await response.json()
         console.log('Subscription fetch result:', result)
         setSubscriptions(result.data || [])
-        setDebugInfo(`Success: Fetched ${result.data?.length || 0} subscriptions`)
       } else {
         const errorText = await response.text()
         console.log('Subscription fetch error response:', errorText)
-        setDebugInfo(`Error: ${response.status} - ${errorText}`)
       }
     } catch (error) {
       console.error('Failed to fetch subscriptions:', error)
-      setDebugInfo(`Exception: ${error}`)
     }
   }
 
@@ -141,20 +137,7 @@ export default function Dashboard() {
           </Button>
         </div>
 
-        {/* Debug Info */}
-        {debugInfo && (
-          <Card className="mb-6 border-yellow-200 bg-yellow-50">
-            <CardHeader>
-              <CardTitle className="text-lg text-yellow-800">Debug Info</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-yellow-700">{debugInfo}</p>
-              <p className="text-sm text-yellow-700 mt-2">
-                Current Token: {getAuthToken() ? `${getAuthToken()?.slice(0, 20)}...` : 'No token found'}
-              </p>
-            </CardContent>
-          </Card>
-        )}
+      
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           <Card>
@@ -240,7 +223,7 @@ export default function Dashboard() {
                 + Add New Subscription
               </Button>
               <Link href="/subscriptions" passHref>
-                <Button variant="outline" className="w-full justify-start">
+                <Button variant="outline" className="w-full justify-start mb-3">
                   📊 View All Subscriptions ({subscriptions.length})
                 </Button>
               </Link>

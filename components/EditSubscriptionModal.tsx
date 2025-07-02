@@ -9,10 +9,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { api, Subscription } from "@/lib/api"
 import NotificationToast, { useNotification } from "@/components/NotificationToast"
 
-interface AddSubscriptionModalProps {
+interface EditSubscriptionModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSubscriptionAdded?: () => void
+  subscription: Subscription | null
+  onSubscriptionUpdated?: () => void
 }
 
 interface TrialInfo {
@@ -39,7 +40,7 @@ interface SubscriptionData {
   status: string
 }
 
-export default function AddSubscriptionModal({ open, onOpenChange, onSubscriptionAdded }: AddSubscriptionModalProps) {
+export default function EditSubscriptionModal({ open, onOpenChange, subscription, onSubscriptionUpdated }: EditSubscriptionModalProps) {
   const [formData, setFormData] = useState<SubscriptionData>({
     name: "",
     websiteUrl: "",
@@ -64,6 +65,41 @@ export default function AddSubscriptionModal({ open, onOpenChange, onSubscriptio
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const { notification, showNotification, hideNotification } = useNotification()
+
+  // Populate form when subscription prop changes
+  useEffect(() => {
+    if (subscription && open) {
+      setFormData({
+        name: subscription.name || "",
+        websiteUrl: subscription.websiteUrl || "",
+        price: subscription.price || 0,
+        currency: subscription.currency || "USD",
+        frequency: subscription.frequency || "monthly",
+        category: subscription.category || "",
+        startDate: subscription.startDate ? new Date(subscription.startDate).toISOString().split('T')[0] : "",
+        paymentMethod: subscription.paymentMethod || "",
+        isTrial: subscription.isTrial || false,
+        trialInfo: subscription.trialInfo ? {
+          trialDuration: subscription.trialInfo.trialDuration || 30,
+          trialDurationUnit: subscription.trialInfo.trialDurationUnit || "days",
+          trialEndDate: subscription.trialInfo.trialEndDate || "",
+          postTrialPrice: subscription.trialInfo.postTrialPrice || 0,
+          autoConvertToRegular: subscription.trialInfo.autoConvertToRegular || true,
+          reminderSent: subscription.trialInfo.reminderSent || false,
+          cancellationDate: subscription.trialInfo.cancellationDate || null
+        } : {
+          trialDuration: 30,
+          trialDurationUnit: "days",
+          trialEndDate: "",
+          postTrialPrice: 0,
+          autoConvertToRegular: true,
+          reminderSent: false,
+          cancellationDate: null
+        },
+        status: subscription.status || "active"
+      })
+    }
+  }, [subscription, open])
 
   // Calculate trial end date when trial duration or start date changes
   useEffect(() => {
@@ -117,6 +153,12 @@ export default function AddSubscriptionModal({ open, onOpenChange, onSubscriptio
     setIsLoading(true)
     setError("")
 
+    if (!subscription?._id) {
+      setError("No subscription selected for editing")
+      setIsLoading(false)
+      return
+    }
+
     // Basic validation
     if (!formData.name || !formData.category || !formData.startDate || !formData.paymentMethod) {
       setError("Please fill in all required fields")
@@ -148,7 +190,7 @@ export default function AddSubscriptionModal({ open, onOpenChange, onSubscriptio
 
     try {
       // Format the data for API
-      const subscriptionData: Subscription = {
+      const subscriptionData: Partial<Subscription> = {
         name: formData.name,
         price: formData.isTrial ? 0 : parseFloat(formData.price.toString()),
         currency: formData.currency,
@@ -178,60 +220,37 @@ export default function AddSubscriptionModal({ open, onOpenChange, onSubscriptio
         }
       }
 
-      console.log("Subscription data to submit:", subscriptionData)
+      console.log("Subscription data to update:", subscriptionData)
       
-      // Make API call to create subscription
-      const response = await api.subscriptions.create(subscriptionData)
+      // Make API call to update subscription
+      const response = await api.subscriptions.update(subscription._id, subscriptionData)
       
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.message || 'Failed to create subscription')
+        throw new Error(errorData.message || 'Failed to update subscription')
       }
 
       const result = await response.json()
-      console.log("Subscription created successfully:", result)
-      
-      // Reset form and close modal
-      setFormData({
-        name: "",
-        websiteUrl: "",
-        price: 0,
-        currency: "USD",
-        frequency: "monthly",
-        category: "",
-        startDate: "",
-        paymentMethod: "",
-        isTrial: false,
-        trialInfo: {
-          trialDuration: 30,
-          trialDurationUnit: "days",
-          trialEndDate: "",
-          postTrialPrice: 0,
-          autoConvertToRegular: true,
-          reminderSent: false,
-          cancellationDate: null
-        },
-        status: "active"
-      })
+      console.log("Subscription updated successfully:", result)
       
       onOpenChange(false)
       
       // Call the callback to refresh the subscription list
-      if (onSubscriptionAdded) {
-        onSubscriptionAdded()
+      if (onSubscriptionUpdated) {
+        onSubscriptionUpdated()
       }
       
       // Show success notification
       showNotification(
-        "Subscription Added",
-        `${formData.name} has been successfully added to your subscriptions.`,
+        "Subscription Updated",
+        `${formData.name} has been successfully updated.`,
         "success"
       )
       
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to add subscription. Please try again."
+      const errorMessage = err instanceof Error ? err.message : "Failed to update subscription. Please try again."
       setError(errorMessage)
-      console.error("Add subscription error:", err)
+      console.error("Update subscription error:", err)
     } finally {
       setIsLoading(false)
     }
@@ -242,9 +261,9 @@ export default function AddSubscriptionModal({ open, onOpenChange, onSubscriptio
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Add New Subscription</DialogTitle>
+            <DialogTitle>Edit Subscription</DialogTitle>
             <DialogDescription>
-              Enter the details of your new subscription to start tracking it.
+              Update the details of your subscription.
             </DialogDescription>
           </DialogHeader>
           
@@ -566,7 +585,7 @@ export default function AddSubscriptionModal({ open, onOpenChange, onSubscriptio
                 className="flex-1"
                 disabled={isLoading}
               >
-                {isLoading ? "Adding..." : "Add Subscription"}
+                {isLoading ? "Updating..." : "Update Subscription"}
               </Button>
             </div>
           </form>

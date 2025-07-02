@@ -49,7 +49,7 @@ const DialogContent: React.FC<{
 }> = ({ children, className }) => {
   return (
     <div className={cn(
-      "bg-white dark:bg-slate-800 rounded-lg shadow-lg max-w-md w-full mx-4 p-6",
+      "bg-white dark:bg-slate-800 rounded-lg shadow-lg max-w-md w-full p-6",
       className
     )}>
       {children}
