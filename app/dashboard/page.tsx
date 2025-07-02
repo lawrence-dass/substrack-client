@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 import AddSubscriptionModal from "@/components/AddSubscriptionModal"
 import { api, Subscription, removeAuthToken, getAuthToken } from "@/lib/api"
+import Link from "next/link"
 
 interface User {
   id: string
@@ -27,7 +28,12 @@ export default function Dashboard() {
       const token = getAuthToken()
       console.log('Current token before request:', token)
       
-      const response = await api.subscriptions.getAll()
+      if (!user?.id) {
+        console.log('No user ID available')
+        return
+      }
+      
+      const response = await api.subscriptions.getSubscriptions(user.id)
       console.log('Subscription fetch response status:', response.status)
       
       if (response.ok) {
@@ -54,15 +60,22 @@ export default function Dashboard() {
     console.log('Dashboard loaded - Current token:', currentToken)
     
     if (userData) {
-      setUser(JSON.parse(userData))
-      // Fetch subscriptions for the user
-      fetchSubscriptions()
+      const parsedUser = JSON.parse(userData)
+      setUser(parsedUser)
+      setIsLoading(false)
     } else {
       // Redirect to signin if not logged in
       router.push('/signin')
+      setIsLoading(false)
     }
-    setIsLoading(false)
   }, [router])
+
+  // Fetch subscriptions when user is set
+  useEffect(() => {
+    if (user?.id) {
+      fetchSubscriptions()
+    }
+  }, [user])
 
   const handleLogout = () => {
     localStorage.removeItem('user')
@@ -226,9 +239,11 @@ export default function Dashboard() {
               >
                 + Add New Subscription
               </Button>
-              <Button variant="outline" className="w-full justify-start">
-                📊 View All Subscriptions ({subscriptions.length})
-              </Button>
+              <Link href="/subscriptions" passHref>
+                <Button variant="outline" className="w-full justify-start">
+                  📊 View All Subscriptions ({subscriptions.length})
+                </Button>
+              </Link>
               <Button variant="outline" className="w-full justify-start">
                 ⏰ Manage Free Trials ({freeTrials.length})
               </Button>

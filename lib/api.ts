@@ -31,15 +31,10 @@ const getAuthHeaders = (): HeadersInit => {
   }
   
   if (token) {
-    // Try different header formats that backends commonly expect
-    headers['Authorization'] = `Bearer ${token}`  // Standard format
-    // headers['authorization'] = `Bearer ${token}`  // Lowercase (some backends prefer this)
-    headers['x-auth-token'] = token              // Alternative token header
-    headers['token'] = token                     // Simple token header
-    
-    console.log('Added Authorization headers with token:', token)
+    headers['Authorization'] = `Bearer ${token}`
+    console.log('✅ Added Authorization header with Bearer token')
   } else {
-    console.log('No token found, Authorization headers not added')
+    console.log('❌ No token found, Authorization header not added')
   }
   
   console.log('Final headers:', headers)
@@ -118,23 +113,26 @@ export const api = {
 
   subscriptions: {
     create: async (subscriptionData: Subscription) => {
-      console.log('Making subscription create request...')
+      console.log('🚀 Making subscription create request...')
       const headers = getAuthHeaders()
       const response = await fetch(`${API_BASE_URL}/subscriptions`, {
         method: 'POST',
         headers,
         body: JSON.stringify(subscriptionData)
       })
+      console.log('📬 Subscription create response status:', response.status)
       return response
     },
 
-    getAll: async () => {
-      console.log('Making subscription getAll request...')
+    getSubscriptions: async (userId: string) => {
+      console.log('🚀 Making subscription getAll request... userId', userId)
+      console.log(userId)
       const headers = getAuthHeaders()
-      const response = await fetch(`${API_BASE_URL}/subscriptions`, {
+      const response = await fetch(`${API_BASE_URL}/subscriptions/user/${userId}`, {
         method: 'GET',
         headers
       })
+      console.log('📬 Subscription getAll response status:', response.status)
       return response
     }
   }

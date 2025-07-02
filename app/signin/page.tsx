@@ -39,7 +39,6 @@ export default function SignIn() {
       console.log('Making signin request...')
       const response = await api.auth.signIn(email, password)
       console.log('Signin response status:', response.status)
-      console.log('Signin response headers:', response.headers)
       
       const data: Record<string, unknown> = await response.json()
       console.log('=== COMPLETE SIGNIN RESPONSE ===')
@@ -47,69 +46,46 @@ export default function SignIn() {
       console.log('================================')
       
       if (response.ok && data.success) {
-        // Check for token in various possible locations
+        // Extract token from the actual response structure: data.data.token
         let token = null
         
-        // Common token field names to check
-        const tokenFields = [
-          'token',           // data.token
-          'accessToken',     // data.accessToken
-          'authToken',       // data.authToken
-          'jwt',             // data.jwt
-          'access_token',    // data.access_token
-          'auth_token'       // data.auth_token
-        ]
-        
-        // Check at root level first
-        for (const field of tokenFields) {
-          if (data[field]) {
-            token = data[field] as string
-            console.log(`Found token at root level in field: ${field}`)
-            break
+        if (data.data && typeof data.data === 'object') {
+          const responseData = data.data as Record<string, unknown>
+          
+          // The backend returns token at data.data.token
+          if (responseData.token) {
+            token = responseData.token as string
+            console.log('✅ Found token at data.data.token:', token)
           }
-        }
-        
-        // If not found at root, check in data object
-        if (!token && data.data && typeof data.data === 'object') {
-          const dataObj = data.data as Record<string, unknown>
-          for (const field of tokenFields) {
-            if (dataObj[field]) {
-              token = dataObj[field] as string
-              console.log(`Found token in data.${field}`)
-              break
-            }
-          }
-        }
-        
-        // Check for token in response headers
-        if (!token) {
-          const authHeader = response.headers.get('authorization') || response.headers.get('Authorization')
-          if (authHeader) {
-            token = authHeader.replace('Bearer ', '')
-            console.log('Found token in Authorization header')
+          
+          // Also check user data structure
+          if (responseData.user && typeof responseData.user === 'object') {
+            const userData = responseData.user as { _id: string; name: string; email: string }
+            console.log('✅ Found user data at data.data.user:', userData)
+            
+            // Store user info in localStorage
+            localStorage.setItem('user', JSON.stringify({
+              id: userData._id,
+              name: userData.name,
+              email: userData.email
+            }))
+            console.log('✅ User data stored successfully')
           }
         }
         
         if (token) {
-          console.log('Token found and storing:', token)
+          console.log('✅ Storing JWT token:', token)
           setAuthToken(token)
+          console.log('✅ JWT token stored successfully')
         } else {
-          console.log('No token found in response')
+          console.log('❌ No token found in response')
           console.log('Available fields in response:', Object.keys(data))
           if (data.data && typeof data.data === 'object') {
             console.log('Available fields in data object:', Object.keys(data.data as Record<string, unknown>))
           }
         }
         
-        // Store user info in localStorage
-        const userData = data.data as { _id: string; name: string; email: string }
-        localStorage.setItem('user', JSON.stringify({
-          id: userData._id,
-          name: userData.name,
-          email: userData.email
-        }))
-        
-        console.log('User data stored, redirecting to dashboard')
+        console.log('✅ Signin successful, redirecting to dashboard')
         // Redirect to dashboard
         router.push('/dashboard')
       } else {

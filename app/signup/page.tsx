@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { api, AuthResponse, setAuthToken } from "@/lib/api"
+import { api, setAuthToken } from "@/lib/api"
 
 export default function SignUp() {
   const [firstName, setFirstName] = useState("")
@@ -51,26 +51,60 @@ export default function SignUp() {
 
     try {
       // Make API call to sign up endpoint
+      console.log('Making signup request...')
       const response = await api.auth.signUp(`${firstName} ${lastName}`, email, password)
-      const data: AuthResponse = await response.json()
+      console.log('Signup response status:', response.status)
+      
+      const data: Record<string, unknown> = await response.json()
+      console.log('=== COMPLETE SIGNUP RESPONSE ===')
+      console.log('Full response data:', JSON.stringify(data, null, 2))
+      console.log('================================')
       
       if (response.ok && data.success) {
-        // Store JWT token if provided
-        if (data.token) {
-          setAuthToken(data.token)
+        // Extract token from the actual response structure: data.data.token
+        let token = null
+        
+        if (data.data && typeof data.data === 'object') {
+          const responseData = data.data as Record<string, unknown>
+          
+          // The backend returns token at data.data.token
+          if (responseData.token) {
+            token = responseData.token as string
+            console.log('✅ Found token at data.data.token:', token)
+          }
+          
+          // Also check user data structure
+          if (responseData.user && typeof responseData.user === 'object') {
+            const userData = responseData.user as { _id: string; name: string; email: string }
+            console.log('✅ Found user data at data.data.user:', userData)
+            
+            // Store user info in localStorage
+            localStorage.setItem('user', JSON.stringify({
+              id: userData._id,
+              name: userData.name,
+              email: userData.email
+            }))
+            console.log('✅ User data stored successfully')
+          }
         }
         
-        // Store user info in localStorage
-        localStorage.setItem('user', JSON.stringify({
-          id: data.data._id,
-          name: data.data.name,
-          email: data.data.email
-        }))
+        if (token) {
+          console.log('✅ Storing JWT token:', token)
+          setAuthToken(token)
+          console.log('✅ JWT token stored successfully')
+        } else {
+          console.log('❌ No token found in response')
+          console.log('Available fields in response:', Object.keys(data))
+          if (data.data && typeof data.data === 'object') {
+            console.log('Available fields in data object:', Object.keys(data.data as Record<string, unknown>))
+          }
+        }
         
+        console.log('✅ Signup successful, redirecting to dashboard')
         // Redirect to dashboard
         router.push('/dashboard')
       } else {
-        setError(data.message || "Failed to create account. Please try again.")
+        setError((data.message as string) || "Failed to create account. Please try again.")
       }
       
     } catch (err) {
