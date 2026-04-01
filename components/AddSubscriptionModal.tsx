@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
-import { api, Subscription } from "@/lib/api"
+import { Subscription } from "@/lib/api"
+import { dataService } from "@/lib/dataService"
 import NotificationToast, { useNotification } from "@/components/NotificationToast"
 
 interface AddSubscriptionModalProps {
@@ -178,18 +179,7 @@ export default function AddSubscriptionModal({ open, onOpenChange, onSubscriptio
         }
       }
 
-      console.log("Subscription data to submit:", subscriptionData)
-      
-      // Make API call to create subscription
-      const response = await api.subscriptions.create(subscriptionData)
-      
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.message || 'Failed to create subscription')
-      }
-
-      const result = await response.json()
-      console.log("Subscription created successfully:", result)
+      await dataService.subscriptions.create(subscriptionData)
       
       // Reset form and close modal
       setFormData({

@@ -5,10 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion"
 import { useRouter } from "next/navigation"
-import { api, Subscription, getAuthToken } from "@/lib/api"
+import { Subscription, getAuthToken } from "@/lib/api"
+import { dataService, isGuest } from "@/lib/dataService"
 import EditSubscriptionModal from "@/components/EditSubscriptionModal"
 import ConfirmationPopover from "@/components/ConfirmationPopover"
 import NotificationToast, { useNotification } from "@/components/NotificationToast"
+import GuestBanner from "@/components/GuestBanner"
 import Link from "next/link"
 
 interface User {
@@ -16,6 +18,8 @@ interface User {
   name: string
   email: string
 }
+
+const GUEST_USER: User = { id: 'guest', name: 'Guest', email: '' }
 
 export default function SubscriptionsPage() {
   const [user, setUser] = useState<User | null>(null)
@@ -28,28 +32,12 @@ export default function SubscriptionsPage() {
   const { notification, showNotification, hideNotification } = useNotification()
   const router = useRouter()
 
-  const fetchSubscriptions = async () => {
+  const fetchSubscriptions = async (currentUser: User) => {
     try {
       setIsLoading(true)
       setError('')
-      
-      if (!user?.id) {
-        console.log('No user ID available')
-        return
-      }
-      
-      console.log('Fetching subscriptions for user:', user.id)
-      const response = await api.subscriptions.getSubscriptions(user.id)
-      
-      if (response.ok) {
-        const result = await response.json()
-        console.log('Subscriptions fetched:', result)
-        setSubscriptions(result.data || [])
-      } else {
-        const errorText = await response.text()
-        console.error('Failed to fetch subscriptions:', errorText)
-        setError('Failed to load subscriptions')
-      }
+      const data = await dataService.subscriptions.getAll(currentUser.id)
+      setSubscriptions(data)
     } catch (error) {
       console.error('Error fetching subscriptions:', error)
       setError('Failed to load subscriptions')
@@ -59,23 +47,18 @@ export default function SubscriptionsPage() {
   }
 
   useEffect(() => {
-    // Check if user is logged in
     const userData = localStorage.getItem('user')
     const currentToken = getAuthToken()
-    
     if (userData && currentToken) {
-      const parsedUser = JSON.parse(userData)
-      setUser(parsedUser)
+      setUser(JSON.parse(userData))
     } else {
-      // Redirect to signin if not logged in
-      router.push('/signin')
+      setUser(GUEST_USER)
     }
   }, [router])
 
-  // Fetch subscriptions when user is set
   useEffect(() => {
-    if (user?.id) {
-      fetchSubscriptions()
+    if (user) {
+      fetchSubscriptions(user)
     }
   }, [user])
 
@@ -88,21 +71,15 @@ export default function SubscriptionsPage() {
     if (!subscription._id) return
 
     setActionLoading(subscription._id)
-    
+
     try {
-      const response = await api.subscriptions.cancel(subscription._id)
-      
-      if (response.ok) {
-        showNotification(
-          "Subscription Cancelled",
-          `${subscription.name} has been successfully cancelled.`,
-          "success"
-        )
-        fetchSubscriptions() // Refresh the list
-      } else {
-        const errorData = await response.json()
-        throw new Error(errorData.message || 'Failed to cancel subscription')
-      }
+      await dataService.subscriptions.cancel(subscription._id)
+      showNotification(
+        "Subscription Cancelled",
+        `${subscription.name} has been successfully cancelled.`,
+        "success"
+      )
+      if (user) fetchSubscriptions(user)
     } catch (error) {
       console.error('Error cancelling subscription:', error)
       showNotification(
@@ -119,21 +96,15 @@ export default function SubscriptionsPage() {
     if (!subscription._id) return
 
     setActionLoading(subscription._id)
-    
+
     try {
-      const response = await api.subscriptions.delete(subscription._id)
-      
-      if (response.ok) {
-        showNotification(
-          "Subscription Deleted",
-          `${subscription.name} has been permanently deleted.`,
-          "success"
-        )
-        fetchSubscriptions() // Refresh the list
-      } else {
-        const errorData = await response.json()
-        throw new Error(errorData.message || 'Failed to delete subscription')
-      }
+      await dataService.subscriptions.delete(subscription._id)
+      showNotification(
+        "Subscription Deleted",
+        `${subscription.name} has been permanently deleted.`,
+        "success"
+      )
+      if (user) fetchSubscriptions(user)
     } catch (error) {
       console.error('Error deleting subscription:', error)
       showNotification(
@@ -208,6 +179,7 @@ export default function SubscriptionsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+      {isGuest() && <GuestBanner />}
       <div className="container mx-auto px-4 py-16">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
@@ -231,10 +203,10 @@ export default function SubscriptionsPage() {
           <Card className="mb-6 border-red-200 bg-red-50">
             <CardContent className="p-4">
               <p className="text-red-700">{error}</p>
-              <Button 
-                onClick={fetchSubscriptions} 
-                variant="outline" 
-                size="sm" 
+              <Button
+                onClick={() => user && fetchSubscriptions(user)}
+                variant="outline"
+                size="sm"
                 className="mt-2"
               >
                 Try Again
@@ -501,7 +473,7 @@ export default function SubscriptionsPage() {
         open={editModalOpen}
         onOpenChange={setEditModalOpen}
         subscription={selectedSubscription}
-        onSubscriptionUpdated={fetchSubscriptions}
+        onSubscriptionUpdated={() => user && fetchSubscriptions(user)}
       />
 
       {/* Notification Toast */}
