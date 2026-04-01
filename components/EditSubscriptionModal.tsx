@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
-import { api, Subscription } from "@/lib/api"
+import { Subscription } from "@/lib/api"
+import { dataService } from "@/lib/dataService"
 import NotificationToast, { useNotification } from "@/components/NotificationToast"
 
 interface EditSubscriptionModalProps {
@@ -220,19 +221,8 @@ export default function EditSubscriptionModal({ open, onOpenChange, subscription
         }
       }
 
-      console.log("Subscription data to update:", subscriptionData)
-      
-      // Make API call to update subscription
-      const response = await api.subscriptions.update(subscription._id, subscriptionData)
-      
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.message || 'Failed to update subscription')
-      }
+      await dataService.subscriptions.update(subscription._id, subscriptionData)
 
-      const result = await response.json()
-      console.log("Subscription updated successfully:", result)
-      
       onOpenChange(false)
       
       // Call the callback to refresh the subscription list

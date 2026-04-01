@@ -51,7 +51,7 @@ export default function Home() {
             Track, manage, and optimize all your subscriptions and free trials in one powerful dashboard. 
             Save money and never miss an important renewal date again.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-4">
             <Link href="/signup">
               <Button size="lg" className="text-lg px-8 py-3">
                 Get Started Free
@@ -63,6 +63,11 @@ export default function Home() {
               </Button>
             </Link>
           </div>
+          <Link href="/dashboard">
+            <Button variant="outline" size="lg" className="text-lg px-8 py-3 border-dashed border-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:border-solid">
+              Try without signing up →
+            </Button>
+          </Link>
         </div>
 
         {/* Features Section */}

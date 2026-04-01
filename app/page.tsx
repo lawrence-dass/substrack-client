@@ -20,7 +20,7 @@ export default function Home() {
             Take control of your recurring expenses and free trials. Monitor, manage, and optimize all your subscriptions and trial periods in one beautiful dashboard.
           </p>
           
-          <div className="flex justify-center space-x-4 mb-16">
+          <div className="flex flex-col sm:flex-row justify-center gap-4 mb-4">
             <Link href="/signup">
               <Button size="lg" className="text-lg px-8 py-4">
                 Start Free Trial
@@ -29,6 +29,13 @@ export default function Home() {
             <Link href="/signin">
               <Button variant="outline" size="lg" className="text-lg px-8 py-4">
                 Sign In
+              </Button>
+            </Link>
+          </div>
+          <div className="mb-16">
+            <Link href="/dashboard">
+              <Button variant="outline" size="lg" className="text-lg px-8 py-4 border-dashed border-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:border-solid">
+                Try without signing up →
               </Button>
             </Link>
           </div>

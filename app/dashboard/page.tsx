@@ -5,7 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 import AddSubscriptionModal from "@/components/AddSubscriptionModal"
-import { api, Subscription, removeAuthToken, getAuthToken } from "@/lib/api"
+import GuestBanner from "@/components/GuestBanner"
+import { Subscription, removeAuthToken } from "@/lib/api"
+import { dataService, isGuest } from "@/lib/dataService"
 import Link from "next/link"
 
 interface User {
@@ -14,6 +16,8 @@ interface User {
   email: string
 }
 
+const GUEST_USER: User = { id: 'guest', name: 'Guest', email: '' }
+
 export default function Dashboard() {
   const [user, setUser] = useState<User | null>(null)
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
@@ -21,80 +25,51 @@ export default function Dashboard() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const router = useRouter()
 
-  const fetchSubscriptions = async () => {
+  const fetchSubscriptions = async (currentUser: User) => {
     try {
-      console.log('Fetching subscriptions...')
-      const token = getAuthToken()
-      console.log('Current token before request:', token)
-      
-      if (!user?.id) {
-        console.log('No user ID available')
-        return
-      }
-      
-      const response = await api.subscriptions.getSubscriptions(user.id)
-      console.log('Subscription fetch response status:', response.status)
-      
-      if (response.ok) {
-        const result = await response.json()
-        console.log('Subscription fetch result:', result)
-        setSubscriptions(result.data || [])
-      } else {
-        const errorText = await response.text()
-        console.log('Subscription fetch error response:', errorText)
-      }
+      const data = await dataService.subscriptions.getAll(currentUser.id)
+      setSubscriptions(data)
     } catch (error) {
       console.error('Failed to fetch subscriptions:', error)
     }
   }
 
   useEffect(() => {
-    // Check if user is logged in
     const userData = localStorage.getItem('user')
-    const currentToken = getAuthToken()
-    console.log('Dashboard loaded - User data:', userData)
-    console.log('Dashboard loaded - Current token:', currentToken)
-    
     if (userData) {
       const parsedUser = JSON.parse(userData)
       setUser(parsedUser)
-      setIsLoading(false)
     } else {
-      // Redirect to signin if not logged in
-      router.push('/signin')
-      setIsLoading(false)
+      setUser(GUEST_USER)
     }
+    setIsLoading(false)
   }, [router])
 
-  // Fetch subscriptions when user is set
   useEffect(() => {
-    if (user?.id) {
-      fetchSubscriptions()
+    if (user) {
+      fetchSubscriptions(user)
     }
   }, [user])
 
   const handleLogout = () => {
     localStorage.removeItem('user')
-    removeAuthToken() // Remove JWT token
+    removeAuthToken()
     router.push('/')
   }
 
   const handleSubscriptionAdded = () => {
-    // Refresh subscriptions when a new one is added
-    fetchSubscriptions()
+    if (user) fetchSubscriptions(user)
   }
 
-  // Calculate stats from subscriptions
   const activeSubscriptions = subscriptions.filter(sub => sub.status === 'active')
   const freeTrials = subscriptions.filter(sub => sub.isTrial && sub.status === 'active')
   const monthlySpending = activeSubscriptions
     .filter(sub => !sub.isTrial)
     .reduce((total, sub) => {
-      // Convert all to monthly for calculation
       let monthlyPrice = sub.price
       switch (sub.frequency) {
         case 'weekly':
-          monthlyPrice = sub.price * 4.33 // Average weeks per month
+          monthlyPrice = sub.price * 4.33
           break
         case 'quarterly':
           monthlyPrice = sub.price / 3
@@ -116,28 +91,32 @@ export default function Dashboard() {
     )
   }
 
-  if (!user) {
-    return null // Will redirect to signin
-  }
+  const guest = isGuest()
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+      {guest && <GuestBanner />}
+
       <div className="container mx-auto px-4 py-16">
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
-              Welcome back, {user.name}!
+              Welcome{!guest && ' back'}, {user?.name}!
             </h1>
             <p className="text-gray-600 dark:text-gray-300">
               Manage your subscriptions and free trials
             </p>
           </div>
-          <Button onClick={handleLogout} variant="outline">
-            Logout
-          </Button>
+          {!guest ? (
+            <Button onClick={handleLogout} variant="outline">
+              Logout
+            </Button>
+          ) : (
+            <Link href="/signup">
+              <Button>Create Account</Button>
+            </Link>
+          )}
         </div>
-
-      
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           <Card>
@@ -151,7 +130,7 @@ export default function Dashboard() {
               </p>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Free Trials</CardTitle>
@@ -163,7 +142,7 @@ export default function Dashboard() {
               </p>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Monthly Spending</CardTitle>
@@ -210,13 +189,13 @@ export default function Dashboard() {
               )}
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader>
               <CardTitle>Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Button 
+              <Button
                 className="w-full justify-start"
                 onClick={() => setIsAddModalOpen(true)}
               >
@@ -233,10 +212,10 @@ export default function Dashboard() {
               <Button variant="outline" className="w-full justify-start">
                 📈 View Spending Report
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="w-full justify-start"
-                onClick={fetchSubscriptions}
+                onClick={() => user && fetchSubscriptions(user)}
               >
                 🔄 Refresh Data
               </Button>
@@ -245,12 +224,11 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Add Subscription Modal */}
-      <AddSubscriptionModal 
-        open={isAddModalOpen} 
+      <AddSubscriptionModal
+        open={isAddModalOpen}
         onOpenChange={setIsAddModalOpen}
         onSubscriptionAdded={handleSubscriptionAdded}
       />
     </div>
   )
-} 
+}
