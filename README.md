@@ -2,11 +2,17 @@
 
 > A modern subscription tracking application built with Next.js and TypeScript
 
-[![Next.js](https://img.shields.io/badge/Next.js-15.3.4-black?style=flat-square&logo=next.js)](https://nextjs.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-15.3.9-black?style=flat-square&logo=next.js)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-19.0.0-blue?style=flat-square&logo=react)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.x-38B2AC?style=flat-square&logo=tailwind-css)](https://tailwindcss.com/)
 [![shadcn/ui](https://img.shields.io/badge/shadcn%2Fui-Latest-black?style=flat-square)](https://ui.shadcn.com/)
+
+## 📸 Screenshots
+
+| Dashboard | Add Subscription |
+|-----------|-----------------|
+| ![Dashboard overview showing active subscriptions, free trials, monthly spending and quick actions](./public/substract%201.png) | ![Add subscription modal with fields for name, price, billing frequency, category and payment method](./public/substract%202.png) |
 
 ## 🎯 Overview
 
